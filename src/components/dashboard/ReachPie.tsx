@@ -424,6 +424,15 @@ export function ReachPie({
                   : {})}
               />
             ))}
+            {view === "now" && plan === "l2" && (
+              <Row
+                color={COLORS.reachable ?? COLORS.l1}
+                title="Total reachable — all levels"
+                note="Level 1 + Level 2 combined · click for the email, phone and address breakdown"
+                value={compact(t.now.guests)}
+                onClick={() => onFocus({ ...focus, level: "now", field: null })}
+              />
+            )}
             {plan === "l1" && view === "now" && (
               <div className="rounded-xl border border-primary/40 bg-primary/5 p-3.5">
                 <p className="flex items-center gap-2 text-sm font-semibold text-primary">
