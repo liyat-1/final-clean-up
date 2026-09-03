@@ -215,18 +215,18 @@ export function ReachPie({
     if (view === "start") {
       return [
         {
-          key: "start",
-          label: "Reachable at your starting point",
-          hint: `${share(t.starting.guests, t.bookings)} of all bookings`,
-          value: t.starting.guests,
-          color: COLORS.starting,
+          key: "rest",
+          label: "Bookings — all still an opportunity",
+          hint: "Nothing had been worked on yet",
+          value: t.bookings,
+          color: COLORS.opportunity,
         },
         {
-          key: "rest",
-          label: "Not reachable back then",
-          hint: "Before Directful started",
-          value: Math.max(0, t.bookings - t.starting.guests),
-          color: COLORS.opportunity,
+          key: "start",
+          label: "Guests you could reach",
+          hint: "None — before Directful nothing was reachable",
+          value: 0,
+          color: COLORS.starting,
         },
       ];
     }
