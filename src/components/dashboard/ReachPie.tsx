@@ -360,7 +360,7 @@ export function ReachPie({
             centerNote={`${share(view === "start" ? t.starting.guests : t.now.guests, t.bookings)} of ${compact(t.bookings)} bookings`}
             onPick={(k) => (k === "l1" || k === "l2" || k === "start" ? onPath([k]) : undefined)}
           />
-        ) : (
+        ) : depth === 1 ? (
           <Donut
             slices={contactSlices(bucketForPath)}
             centerValue={compact(bucketForPath.guests)}
@@ -373,6 +373,13 @@ export function ReachPie({
             }
             centerNote={`${n0(details(bucketForPath))} contact details`}
             onPick={(k) => onPath([path[0]!, k])}
+          />
+        ) : (
+          <Donut
+            slices={fieldSlices(activeField!)}
+            centerValue={compact(fieldBase[activeField!])}
+            centerLabel={`guests with ${FIELDS.find((f) => f.id === activeField)!.label.toLowerCase()}`}
+            centerNote={`${share(fieldBase[activeField!], t.bookings)} of ${compact(t.bookings)} bookings`}
           />
         )}
 
