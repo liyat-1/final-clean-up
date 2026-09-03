@@ -336,6 +336,7 @@ export function Dashboard({ plan }: { plan: Plan }) {
             series={series}
             comparison={compareSeries}
             compareLabel={compare?.label ?? "No comparison"}
+            compareRangeText={compare ? rangeLabel(compare) : ""}
             rangeLabelText={rangeLabel(range)}
             focus={focus}
             plan={plan}
