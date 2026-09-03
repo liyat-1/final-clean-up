@@ -80,7 +80,7 @@ export function linesFor(focus: Focus, plan: Plan): { lines: Line[]; caption: st
         {
           id: "total",
           label: `Total guests from ${LEVEL_LABEL[level]}`,
-          color: level === "l1" ? COLORS.l1 : COLORS.l2,
+          color: level === "l2" ? COLORS.l2 : COLORS.l1,
           value: (d: DayRecord) => dayBucket(d, level).guests,
         },
       ],
