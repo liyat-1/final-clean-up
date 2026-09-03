@@ -456,7 +456,7 @@ export function ReachPie({
           </>
         )}
 
-        {level && view === "now" && field && !guest && (
+        {level && view === "now" && field && (
           <>
             <p className="text-sm font-semibold">
               {n0(bucket[field])} {FIELDS.find((f) => f.id === field)!.label.toLowerCase()} details
@@ -465,96 +465,125 @@ export function ReachPie({
             <p className="text-xs text-muted-foreground">
               Guest by guest — a sample of the profiles behind this number.
             </p>
-            <div className="overflow-hidden rounded-xl border border-border">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-surface-2/70 text-xs text-muted-foreground uppercase">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Guest</th>
-                    <th className="hidden px-3 py-2 font-semibold sm:table-cell">Property</th>
-                    <th className="hidden px-3 py-2 font-semibold md:table-cell">Stay</th>
-                    <th className="px-3 py-2 font-semibold">
-                      {FIELDS.find((f) => f.id === field)!.label}
-                    </th>
-                    <th className="px-3 py-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {matching.slice(0, 25).map((g) => (
-                    <tr
-                      key={g.id}
-                      className="cursor-pointer border-t border-border hover:bg-surface-2/60"
-                      onClick={() => onGuest(g.id)}
-                    >
-                      <td className="px-3 py-2 font-medium">{g.name}</td>
-                      <td className="hidden px-3 py-2 text-muted-foreground sm:table-cell">
-                        {g.property}
-                      </td>
-                      <td className="num hidden px-3 py-2 text-muted-foreground md:table-cell">
-                        {g.stay}
-                      </td>
-                      <td className="num px-3 py-2 text-xs text-foreground/80">
-                        {g.fields[field].value ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <ChevronRight className="inline size-4 text-muted-foreground" />
-                      </td>
-                    </tr>
-                  ))}
-                  {!matching.length && (
+            <div className="relative">
+              <div className="max-h-[420px] overflow-auto rounded-xl border border-border">
+                <table className="w-full text-left text-sm">
+                  <thead className="sticky top-0 z-10 bg-surface-2 text-xs text-muted-foreground uppercase">
                     <tr>
-                      <td colSpan={5} className="px-3 py-4 text-xs text-muted-foreground">
-                        No guest records for this selection. Try another date range or property.
-                      </td>
+                      <th className="px-3 py-2 font-semibold">Guest</th>
+                      <th className="hidden px-3 py-2 font-semibold sm:table-cell">Property</th>
+                      <th className="hidden px-3 py-2 font-semibold md:table-cell">Stay</th>
+                      <th className="px-3 py-2 font-semibold">
+                        {FIELDS.find((f) => f.id === field)!.label}
+                      </th>
+                      <th className="px-3 py-2" />
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {matching.slice(0, 25).map((g) => {
+                      const active = guestId === g.id;
+                      return (
+                        <tr
+                          key={g.id}
+                          className={`cursor-pointer border-t border-border ${
+                            active
+                              ? "bg-primary/10 ring-1 ring-primary/40 ring-inset"
+                              : "hover:bg-surface-2/60"
+                          }`}
+                          onClick={() => onGuest(active ? null : g.id)}
+                        >
+                          <td className="px-3 py-2 font-medium">{g.name}</td>
+                          <td className="hidden px-3 py-2 text-muted-foreground sm:table-cell">
+                            {g.property}
+                          </td>
+                          <td className="num hidden px-3 py-2 text-muted-foreground md:table-cell">
+                            {g.stay}
+                          </td>
+                          <td className="num px-3 py-2 text-xs text-foreground/80">
+                            {g.fields[field].value ?? "—"}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <ChevronRight
+                              className={`inline size-4 ${
+                                active ? "text-primary" : "text-muted-foreground"
+                              }`}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {!matching.length && (
+                      <tr>
+                        <td colSpan={5} className="px-3 py-4 text-xs text-muted-foreground">
+                          No guest records for this selection. Try another date range or property.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {guest && (
+                <div className="pointer-events-none absolute inset-0 flex items-start justify-end p-3">
+                  <div className="pointer-events-auto sticky top-3 w-full max-w-[320px] space-y-3 rounded-xl border border-border bg-popover p-4 shadow-2xl">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-base font-semibold">{guest.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {guest.property} · {guest.country} · stay {guest.stay}
+                        </p>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7 shrink-0"
+                        onClick={() => onGuest(null)}
+                        aria-label="Close guest details"
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </div>
+                    {ALL_FIELDS.map((f) => {
+                      const info = guest.fields[f];
+                      return (
+                        <div key={f} className="rounded-lg border border-border p-2.5">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-sm font-semibold">
+                              {FIELDS.find((x) => x.id === f)!.label}
+                            </span>
+                            <span
+                              className="text-xs font-semibold"
+                              style={{
+                                color:
+                                  info.status === "none"
+                                    ? "var(--muted-foreground)"
+                                    : info.status === "l2"
+                                      ? COLORS.l2
+                                      : info.status === "l1"
+                                        ? COLORS.l1
+                                        : "var(--foreground)",
+                              }}
+                            >
+                              {info.status === "none" ? "Not reachable" : "Reachable"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {statusText(info.status, info.via)}
+                          </p>
+                          {info.value && (
+                            <p className="num text-xs text-foreground/80">{info.value}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
-
-        {guest && (
-          <div className="space-y-3 rounded-xl border border-border bg-surface-2/60 p-4">
-            <div>
-              <p className="text-base font-semibold">{guest.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {guest.property} · {guest.country} · stay {guest.stay}
-              </p>
-            </div>
-            {ALL_FIELDS.map((f) => {
-              const info = guest.fields[f];
-              return (
-                <div key={f} className="rounded-lg border border-border p-2.5">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-semibold">
-                      {FIELDS.find((x) => x.id === f)!.label}
-                    </span>
-                    <span
-                      className="text-xs font-semibold"
-                      style={{
-                        color:
-                          info.status === "none"
-                            ? "var(--muted-foreground)"
-                            : info.status === "l2"
-                              ? COLORS.l2
-                              : info.status === "l1"
-                                ? COLORS.l1
-                                : "var(--foreground)",
-                      }}
-                    >
-                      {info.status === "none" ? "Not reachable" : "Reachable"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {statusText(info.status, info.via)}
-                  </p>
-                  {info.value && <p className="num text-xs text-foreground/80">{info.value}</p>}
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
+
     </div>
   );
 }
