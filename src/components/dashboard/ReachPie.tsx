@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -7,20 +7,26 @@ import {
   COLORS,
   FIELDS,
   FIELD_COLOR,
+  FIELD_VERB,
   LEAF_LABEL,
+  LEVEL2_POTENTIAL_RATE,
+  LEVEL_LABEL,
   compact,
   details,
+  levelBucket,
   n0,
   share,
   type FieldKey,
+  type Focus,
   type Guest,
   type LeafKey,
+  type LevelKey,
+  type Plan,
   type Totals,
   type FieldStatus,
 } from "@/lib/directful";
 
-export type LevelKey = "l1" | "l2";
-export type ViewState = "now" | "start";
+export type { LevelKey, ViewState } from "@/lib/directful";
 
 type Slice = { key: string; label: string; hint: string; value: number; color: string };
 
@@ -80,7 +86,12 @@ function Donut({
 
   const c = hover;
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[330px]" role="img" aria-label={centerLabel}>
+    <svg
+      viewBox={`0 0 ${size} ${size}`}
+      className="w-full max-w-[330px]"
+      role="img"
+      aria-label={centerLabel}
+    >
       {rendered.map((s) => {
         if (s.value <= 0) return null;
         const a0 = Math.min(s.a0 + 0.5, 359.5);
@@ -164,7 +175,9 @@ function Row({
         onClick ? "hover:border-primary/50 hover:bg-surface-2" : ""
       }`}
     >
-      {color && <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ background: color }} />}
+      {color && (
+        <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ background: color }} />
+      )}
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-baseline justify-between gap-2">
           <span className="text-sm font-semibold">{title}</span>
@@ -179,24 +192,24 @@ function Row({
 
 export function ReachPie({
   t,
-  view,
-  level,
   guests,
-  hasL2,
-  path,
-  onPath,
+  plan,
+  focus,
+  onFocus,
+  guestId,
+  onGuest,
 }: {
   t: Totals;
-  view: ViewState;
-  level: LevelKey;
   guests: Guest[];
-  hasL2: boolean;
-  path: string[];
-  onPath: (p: string[]) => void;
+  plan: Plan;
+  focus: Focus;
+  onFocus: (f: Focus) => void;
+  guestId: string | null;
+  onGuest: (id: string | null) => void;
 }) {
-  const levelBucket = level === "l1" ? t.l1 : t.l2;
-  const activeField = path[1] as FieldKey | undefined;
-  const guestId = path[2];
+  const { view, level, field } = focus;
+  const bucket = levelBucket(t, level);
+  const notReachable = Math.max(0, t.bookings - t.now.guests - t.missed);
 
   const rootSlices: Slice[] = useMemo(() => {
     if (view === "start") {
@@ -217,124 +230,113 @@ export function ReachPie({
         },
       ];
     }
-    const out: Slice[] = [
+    if (plan === "l1") {
+      return [
+        {
+          key: "l1",
+          label: "Level 1 — guests made reachable",
+          hint: "Click to see email, phone, address",
+          value: t.l1.guests,
+          color: COLORS.l1,
+        },
+        {
+          key: "remaining",
+          label: "Remaining opportunity",
+          hint: "Guests still out of reach",
+          value: Math.max(0, t.bookings - t.l1.guests),
+          color: COLORS.opportunity,
+        },
+      ];
+    }
+    return [
       {
         key: "start",
-        label: "Reachable at your starting point",
-        hint: "You already had these",
+        label: "Already reachable before Directful",
+        hint: "Your starting point",
         value: t.starting.guests,
         color: COLORS.starting,
       },
       {
         key: "l1",
         label: "Level 1 — guests made reachable",
-        hint: "Click to see email, phone, address",
+        hint: "Click to explore Level 1",
         value: t.l1.guests,
         color: COLORS.l1,
       },
-    ];
-    if (hasL2)
-      out.push({
+      {
         key: "l2",
         label: "Level 2 — extra guests made reachable",
-        hint: "Click to see email, phone, address",
+        hint: "Click to explore Level 2",
         value: t.l2.guests,
         color: COLORS.l2,
-      });
-    out.push(
-      {
-        key: "remaining",
-        label: "Remaining opportunity",
-        hint: "Guests you could still reach",
-        value: t.remaining,
-        color: COLORS.opportunity,
       },
       {
         key: "missed",
         label: "Missed opportunities",
         hint: "Can no longer be recovered",
-        value: t.missed,
+        value: t.missed + notReachable,
         color: COLORS.missed,
       },
-    );
-    return out;
-  }, [t, view, hasL2]);
+    ];
+  }, [t, view, plan, notReachable]);
 
-  const contactSlices = (b: typeof t.l1): Slice[] =>
-    FIELDS.map((f) => ({
-      key: f.id,
-      label: f.label,
-      hint: f.plain,
-      value: b[f.id],
-      color: FIELD_COLOR[f.id],
-    }));
+  const contactSlices: Slice[] = FIELDS.map((f) => ({
+    key: f.id,
+    label: f.label,
+    hint: f.plain,
+    value: bucket[f.id],
+    color: FIELD_COLOR[f.id],
+  }));
 
-  const bucketForPath = view === "start" ? t.starting : path[0] === "l2" ? t.l2 : t.l1;
-  const depth = path.length;
-
-  const fieldBase = view === "start" ? t.starting : t.now;
   const fieldSlices = (f: FieldKey): Slice[] => {
-    const label = FIELDS.find((x) => x.id === f)!.label.toLowerCase();
-    const reachable = fieldBase[f];
+    const made = bucket[f];
     return [
       {
         key: "have",
-        label: `Guests you can ${label === "address" ? "reach by post" : label === "phone" ? "call" : "email"}`,
-        hint: `${share(reachable, t.bookings)} of all bookings`,
-        value: reachable,
+        label: `Made reachable by ${LEVEL_LABEL[level ?? "l1"]}`,
+        hint: `Guests you can ${FIELD_VERB[f]}`,
+        value: made,
         color: FIELD_COLOR[f],
       },
       {
         key: "missing",
-        label: `Guests you cannot ${label === "address" ? "reach by post" : label === "phone" ? "call" : "email"}`,
-        hint: "No usable detail on file",
-        value: Math.max(0, t.bookings - reachable),
+        label: "Still not reachable",
+        hint: `No usable ${FIELDS.find((x) => x.id === f)!.label.toLowerCase()} on file`,
+        value: Math.max(0, t.bookings - made),
         color: COLORS.opportunity,
       },
     ];
   };
 
+  const matching = useMemo(() => {
+    if (!field || !level) return [];
+    return guests.filter((g) => g.fields[field].status === level);
+  }, [guests, field, level]);
+
+  const guest = guests.find((g) => g.id === guestId) ?? null;
 
   const crumbs = [
-    { label: "Guests you can reach", to: [] as string[] },
-    ...(depth > 0
-      ? [
-          {
-            label:
-              path[0] === "l1"
-                ? "Level 1"
-                : path[0] === "l2"
-                  ? "Level 2"
-                  : path[0] === "start"
-                    ? "Starting point"
-                    : "Details",
-            to: [path[0]!],
-          },
-        ]
+    { label: view === "start" ? "Starting point" : "Guests you can reach", focus: { view, level: null, field: null } as Focus },
+    ...(level ? [{ label: LEVEL_LABEL[level], focus: { view, level, field: null } as Focus }] : []),
+    ...(field && level
+      ? [{ label: FIELDS.find((f) => f.id === field)!.label, focus: { view, level, field } as Focus }]
       : []),
-    ...(depth > 1 ? [{ label: FIELDS.find((f) => f.id === activeField)?.label ?? "", to: path.slice(0, 2) }] : []),
-    ...(depth > 2 ? [{ label: guests.find((g) => g.id === guestId)?.name ?? "Guest", to: path.slice(0, 3) }] : []),
   ];
 
-  const matching = useMemo(() => {
-    if (!activeField) return [];
-    const want: FieldStatus = view === "start" ? "start" : path[0] === "l2" ? "l2" : "l1";
-    return guests.filter((g) => g.fields[activeField].status === want);
-  }, [guests, activeField, path, view]);
+  const back = () => {
+    if (guest) return onGuest(null);
+    if (field) return onFocus({ ...focus, field: null });
+    if (level) return onFocus({ ...focus, level: null });
+  };
 
-  const guest = guests.find((g) => g.id === guestId);
+  const potential = notReachable * LEVEL2_POTENTIAL_RATE;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center">
         <nav className="mb-2 flex flex-wrap items-center gap-1 self-start text-xs text-muted-foreground">
-          {depth > 0 && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 px-2"
-              onClick={() => onPath(path.slice(0, -1))}
-            >
+          {(level || field || guest) && (
+            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={back}>
               <ChevronLeft className="size-3.5" /> Back
             </Button>
           )}
@@ -343,74 +345,102 @@ export function ReachPie({
               {i > 0 && <span className="opacity-50">/</span>}
               <button
                 type="button"
-                onClick={() => onPath(c.to)}
-                className={i === crumbs.length - 1 ? "font-semibold text-foreground" : "hover:text-foreground"}
+                onClick={() => {
+                  onGuest(null);
+                  onFocus(c.focus);
+                }}
+                className={
+                  i === crumbs.length - 1 && !guest
+                    ? "font-semibold text-foreground"
+                    : "hover:text-foreground"
+                }
               >
                 {c.label}
               </button>
             </span>
           ))}
+          {guest && (
+            <span className="flex items-center gap-1">
+              <span className="opacity-50">/</span>
+              <span className="font-semibold text-foreground">{guest.name}</span>
+            </span>
+          )}
         </nav>
 
-        {depth === 0 ? (
+        {!level || view === "start" ? (
           <Donut
             slices={rootSlices}
             centerValue={compact(view === "start" ? t.starting.guests : t.now.guests)}
             centerLabel={view === "start" ? "reachable at the start" : "guests you can reach"}
             centerNote={`${share(view === "start" ? t.starting.guests : t.now.guests, t.bookings)} of ${compact(t.bookings)} bookings`}
-            onPick={(k) => (k === "l1" || k === "l2" || k === "start" ? onPath([k]) : undefined)}
-          />
-        ) : depth === 1 ? (
-          <Donut
-            slices={contactSlices(bucketForPath)}
-            centerValue={compact(bucketForPath.guests)}
-            centerLabel={
-              view === "start"
-                ? "reachable at the start"
-                : path[0] === "l2"
-                  ? "guests added by Level 2"
-                  : "guests added by Level 1"
+            onPick={(k) =>
+              view === "now" && (k === "l1" || k === "l2")
+                ? onFocus({ ...focus, level: k, field: null })
+                : undefined
             }
-            centerNote={`${n0(details(bucketForPath))} contact details`}
-            onPick={(k) => onPath([path[0]!, k])}
+          />
+        ) : !field ? (
+          <Donut
+            slices={contactSlices}
+            centerValue={compact(bucket.guests)}
+            centerLabel={`guests added by ${LEVEL_LABEL[level]}`}
+            centerNote={`${n0(details(bucket))} contact details`}
+            onPick={(k) => onFocus({ ...focus, field: k as FieldKey })}
           />
         ) : (
           <Donut
-            slices={fieldSlices(activeField!)}
-            centerValue={compact(fieldBase[activeField!])}
-            centerLabel={`guests with ${FIELDS.find((f) => f.id === activeField)!.label.toLowerCase()}`}
-            centerNote={`${share(fieldBase[activeField!], t.bookings)} of ${compact(t.bookings)} bookings`}
+            slices={fieldSlices(field)}
+            centerValue={compact(bucket[field])}
+            centerLabel={`${FIELDS.find((f) => f.id === field)!.label.toLowerCase()} details added`}
+            centerNote={`${LEVEL_LABEL[level]} · ${share(bucket[field], t.bookings)} of bookings`}
           />
         )}
 
         <p className="mt-3 max-w-[340px] text-center text-xs text-muted-foreground">
-          {depth === 0
-            ? "Click a slice to see what kind of guest information became reachable."
-            : depth === 1
+          {!level
+            ? view === "start"
+              ? "This is where you were before Directful started."
+              : "Click a slice to see what that package made reachable."
+            : !field
               ? "Click email, phone or address to see the guests behind the number."
-              : "Pick a guest to see exactly what changed for them."}
+              : "Pick a guest below to see exactly what changed for them."}
         </p>
       </div>
 
       <div className="w-full space-y-2">
-        {depth === 0 &&
-          rootSlices.map((s) => (
-            <Row
-              key={s.key}
-              color={s.color}
-              title={s.label}
-              note={`${n0(s.value)} guests · ${share(s.value, t.bookings)} of all bookings`}
-              value={compact(s.value)}
-              {...(s.key === "l1" || s.key === "l2" || s.key === "start"
-                ? { onClick: () => onPath([s.key]) }
-                : {})}
-            />
-          ))}
+        {(!level || view === "start") && (
+          <>
+            {rootSlices.map((s) => (
+              <Row
+                key={s.key}
+                color={s.color}
+                title={s.label}
+                note={`${n0(s.value)} guests · ${share(s.value, t.bookings)} of all bookings`}
+                value={compact(s.value)}
+                {...(view === "now" && (s.key === "l1" || s.key === "l2")
+                  ? { onClick: () => onFocus({ ...focus, level: s.key as LevelKey, field: null }) }
+                  : {})}
+              />
+            ))}
+            {plan === "l1" && view === "now" && (
+              <div className="rounded-xl border border-primary/40 bg-primary/5 p-3.5">
+                <p className="flex items-center gap-2 text-sm font-semibold text-primary">
+                  <Sparkles className="size-4" /> Level 2 could add {compact(potential)} more guests
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  About {Math.round(LEVEL2_POTENTIAL_RATE * 100)}% of the{" "}
+                  {n0(notReachable)} guests still out of reach typically become reachable with
+                  Level 2 enrichment.
+                </p>
+              </div>
+            )}
+          </>
+        )}
 
-        {depth === 1 && (
+        {level && view === "now" && !field && (
           <>
             <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              What kind of information became reachable
+              What {LEVEL_LABEL[level]} made reachable
             </p>
             {ALL_FIELDS.map((f) => (
               <Row
@@ -418,61 +448,75 @@ export function ReachPie({
                 color={FIELD_COLOR[f]}
                 title={FIELDS.find((x) => x.id === f)!.label}
                 note={FIELDS.find((x) => x.id === f)!.plain}
-                value={n0(bucketForPath[f])}
-                onClick={() => onPath([path[0]!, f])}
+                value={n0(bucket[f])}
+                onClick={() => onFocus({ ...focus, field: f })}
               />
             ))}
             <p className="px-1 text-xs text-muted-foreground">
-              {n0(bucketForPath.guests)} unique guests · {n0(details(bucketForPath))} contact details.
-              One guest can have more than one detail.
+              {n0(bucket.guests)} unique guests · {n0(details(bucket))} contact details. One guest
+              can have more than one detail.
             </p>
-            <details className="rounded-xl border border-dashed border-border p-3 text-xs">
-              <summary className="cursor-pointer font-semibold">See details of how it happened</summary>
-              <ul className="mt-2 space-y-1">
-                {(path[0] === "l2"
-                  ? (["journey", "staff", "idScan"] as LeafKey[])
-                  : (["cleanup", "whois"] as LeafKey[])
-                ).map((k) => (
-                  <li key={k} className="flex justify-between gap-3 text-muted-foreground">
-                    <span>{LEAF_LABEL[k]}</span>
-                    <span className="num">{n0(t.leaves[k].guests)} guests</span>
-                  </li>
-                ))}
-              </ul>
-            </details>
           </>
         )}
 
-        {depth === 2 && (
+        {level && view === "now" && field && !guest && (
           <>
             <p className="text-sm font-semibold">
-              {n0(bucketForPath[activeField!])} newly reachable{" "}
-              {FIELDS.find((f) => f.id === activeField)?.label.toLowerCase()} details
+              {n0(bucket[field])} {FIELDS.find((f) => f.id === field)!.label.toLowerCase()} details
+              made reachable by {LEVEL_LABEL[level]}
             </p>
             <p className="text-xs text-muted-foreground">
-              A sample of the guests behind this number.
+              Guest by guest — a sample of the profiles behind this number.
             </p>
-            <ul className="max-h-[360px] space-y-1.5 overflow-auto pr-1">
-              {matching.slice(0, 25).map((g) => (
-                <li key={g.id}>
-                  <Row
-                    title={g.name}
-                    note={`${g.property} · stay ${g.stay}`}
-                    value=""
-                    onClick={() => onPath([path[0]!, activeField!, g.id])}
-                  />
-                </li>
-              ))}
-              {!matching.length && (
-                <li className="rounded-xl border border-dashed border-border p-3 text-xs text-muted-foreground">
-                  No guest records for this selection. Try another date range or property.
-                </li>
-              )}
-            </ul>
+            <div className="overflow-hidden rounded-xl border border-border">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-surface-2/70 text-xs text-muted-foreground uppercase">
+                  <tr>
+                    <th className="px-3 py-2 font-semibold">Guest</th>
+                    <th className="hidden px-3 py-2 font-semibold sm:table-cell">Property</th>
+                    <th className="hidden px-3 py-2 font-semibold md:table-cell">Stay</th>
+                    <th className="px-3 py-2 font-semibold">
+                      {FIELDS.find((f) => f.id === field)!.label}
+                    </th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {matching.slice(0, 25).map((g) => (
+                    <tr
+                      key={g.id}
+                      className="cursor-pointer border-t border-border hover:bg-surface-2/60"
+                      onClick={() => onGuest(g.id)}
+                    >
+                      <td className="px-3 py-2 font-medium">{g.name}</td>
+                      <td className="hidden px-3 py-2 text-muted-foreground sm:table-cell">
+                        {g.property}
+                      </td>
+                      <td className="num hidden px-3 py-2 text-muted-foreground md:table-cell">
+                        {g.stay}
+                      </td>
+                      <td className="num px-3 py-2 text-xs text-foreground/80">
+                        {g.fields[field].value ?? "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <ChevronRight className="inline size-4 text-muted-foreground" />
+                      </td>
+                    </tr>
+                  ))}
+                  {!matching.length && (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-4 text-xs text-muted-foreground">
+                        No guest records for this selection. Try another date range or property.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
 
-        {depth === 3 && guest && (
+        {guest && (
           <div className="space-y-3 rounded-xl border border-border bg-surface-2/60 p-4">
             <div>
               <p className="text-base font-semibold">{guest.name}</p>
@@ -485,7 +529,9 @@ export function ReachPie({
               return (
                 <div key={f} className="rounded-lg border border-border p-2.5">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-semibold">{FIELDS.find((x) => x.id === f)!.label}</span>
+                    <span className="text-sm font-semibold">
+                      {FIELDS.find((x) => x.id === f)!.label}
+                    </span>
                     <span
                       className="text-xs font-semibold"
                       style={{
@@ -502,31 +548,13 @@ export function ReachPie({
                       {info.status === "none" ? "Not reachable" : "Reachable"}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{statusText(info.status, info.via)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {statusText(info.status, info.via)}
+                  </p>
                   {info.value && <p className="num text-xs text-foreground/80">{info.value}</p>}
                 </div>
               );
             })}
-            <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              {(["start", "l1", "l2"] as const).map((stage) => (
-                <div key={stage} className="rounded-lg bg-background p-2">
-                  <p className="font-semibold">
-                    {stage === "start" ? "Starting point" : stage === "l1" ? "After Level 1" : "After Level 2"}
-                  </p>
-                  <p className="num text-muted-foreground">
-                    {
-                      ALL_FIELDS.filter((f) => {
-                        const s = guest.fields[f].status;
-                        if (stage === "start") return s === "start";
-                        if (stage === "l1") return s === "start" || s === "l1";
-                        return s !== "none";
-                      }).length
-                    }{" "}
-                    of 3 reachable
-                  </p>
-                </div>
-              ))}
-            </div>
           </div>
         )}
       </div>
