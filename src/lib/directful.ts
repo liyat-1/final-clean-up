@@ -462,7 +462,7 @@ function viaFor(status: FieldStatus, r: number): LeafKey | undefined {
   return undefined;
 }
 
-export function guestsFor(sel: Selection, range: Range): Guest[] {
+export function guestsFor(sel: Selection, range: Range, opts?: { noL2?: boolean }): Guest[] {
   const list = propertiesFor(sel);
   const out: Guest[] = [];
   const span = Math.max(1, daysBetween(range.from, range.to));
@@ -474,7 +474,7 @@ export function guestsFor(sel: Selection, range: Range): Guest[] {
       const last = LAST[Math.floor(r(2) * LAST.length)] ?? "Berg";
       const name = `${first} ${last}`;
       const mk = (f: FieldKey, n: number) => {
-        const status = statusFor(r(n), p.levels.l2);
+        const status = statusFor(r(n), p.levels.l2 && !opts?.noL2);
         const via = viaFor(status, r(n + 20));
         const value =
           status === "none"
