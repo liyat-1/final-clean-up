@@ -163,8 +163,9 @@ function niceTicks(max: number, count = 4) {
   const raw = max / count;
   const mag = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1))));
   const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? mag * 10;
-  const out: number[] = [];
-  for (let v = 0; v <= max + step * 0.001; v += step) out.push(v);
+  const out: number[] = [0];
+  // Always overshoot the max so the tallest bar/line stays inside the plot area.
+  while (out[out.length - 1]! < max) out.push(out[out.length - 1]! + step);
   return out;
 }
 
@@ -186,7 +187,9 @@ export function GrowthOverTime({
   const [hover, setHover] = useState<number | null>(null);
   const { lines, caption } = useMemo(() => linesFor(focus, plan), [focus, plan]);
 
-  const groups = Math.min(12, Math.max(1, series.length));
+  // Short ranges keep one point per day so the axis reads "day by day";
+  // longer ranges group into at most 12 even buckets.
+  const groups = series.length <= 16 ? Math.max(1, series.length) : 12;
   const points = useMemo(() => bucketize(series, groups, lines), [series, groups, lines]);
   const comparePoints = useMemo(
     () => (comparison ? bucketize(comparison, groups, lines) : null),
