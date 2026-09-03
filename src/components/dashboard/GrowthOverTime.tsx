@@ -28,13 +28,19 @@ export function linesFor(focus: Focus, plan: Plan): { lines: Line[]; caption: st
 
   if (view === "start") {
     return {
-      caption: "Guests you could already reach before Directful started.",
+      caption: "Before Directful: every booking was an opportunity, none were reachable.",
       lines: [
         {
+          id: "bookings",
+          label: "Bookings — all opportunity",
+          color: COLORS.opportunity,
+          value: (d) => d.bookings,
+        },
+        {
           id: "start",
-          label: "Starting point",
+          label: "Guests you could reach",
           color: COLORS.starting,
-          value: (d) => d.starting.guests,
+          value: () => 0,
         },
       ],
     };

@@ -195,7 +195,8 @@ function buildSeries(p: PropertyId, s: SourceId): DayRecord[] {
     /** Directful gets better over time — later days convert more. */
     const ramp = 0.6 + (i / HISTORY_DAYS) * 0.75;
 
-    const startingG = bookings * (s === "ota" ? 0.1 : 0.24) * (0.9 + seeded(i, salt + 1) * 0.2);
+    /** Nothing is reachable before Directful — the starting point is always zero. */
+    const startingG = 0;
     const cleanupG = bookings * 0.126 * ramp;
     const whoisG = bookings * 0.078 * ramp;
     const journeyG = prop.levels.l2 ? bookings * 0.112 * ramp : 0;
@@ -411,7 +412,7 @@ export function totalsOf(series: DayRecord[]): Totals {
     now,
     missed,
     remaining: Math.max(0, bookings - now.guests - missed),
-    upliftFromStart: starting.guests ? (now.guests - starting.guests) / starting.guests : 0,
+    upliftFromStart: bookings ? now.guests / bookings : 0,
     l1Share: bookings ? l1.guests / bookings : 0,
     l2Share: bookings ? l2.guests / bookings : 0,
   };
@@ -450,7 +451,6 @@ const LAST = [
 const COUNTRY = ["United Kingdom", "Germany", "Japan", "Nigeria", "Spain", "Italy", "USA", "France"];
 
 function statusFor(r: number, hasL2: boolean): FieldStatus {
-  if (r < 0.12) return "start";
   if (r < 0.45) return "l1";
   if (hasL2 && r < 0.74) return "l2";
   return "none";
