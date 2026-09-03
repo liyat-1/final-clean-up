@@ -544,7 +544,7 @@ export function rangeLabel(r: Range) {
 /** Which Directful package the hotel pays for. */
 export type Plan = "l1" | "l2";
 
-export type LevelKey = "l1" | "l2";
+export type LevelKey = "l1" | "l2" | "now";
 export type ViewState = "now" | "start";
 
 /** What the whole dashboard is currently looking at. Drives pie, list and graph. */
@@ -579,6 +579,7 @@ export function levelBucket(t: Totals, level: LevelKey | null): Bucket {
 export const LEVEL_LABEL: Record<LevelKey, string> = {
   l1: "Level 1",
   l2: "Level 2",
+  now: "All levels",
 };
 
 export const FIELD_VERB: Record<FieldKey, string> = {

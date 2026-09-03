@@ -286,7 +286,10 @@ export function ReachPie({
     return [
       {
         key: "have",
-        label: `Made reachable by ${LEVEL_LABEL[level ?? "l1"]}`,
+        label:
+          level === "now"
+            ? "Made reachable in total"
+            : `Made reachable by ${LEVEL_LABEL[level ?? "l1"]}`,
         hint: `Guests you can ${FIELD_VERB[f]}`,
         value: made,
         color: FIELD_COLOR[f],
@@ -303,7 +306,9 @@ export function ReachPie({
 
   const matching = useMemo(() => {
     if (!field || !level) return [];
-    return guests.filter((g) => g.fields[field].status === level);
+    return guests.filter((g) =>
+      level === "now" ? g.fields[field].status !== "none" : g.fields[field].status === level,
+    );
   }, [guests, field, level]);
 
   const guest = guests.find((g) => g.id === guestId) ?? null;
@@ -419,6 +424,15 @@ export function ReachPie({
                   : {})}
               />
             ))}
+            {view === "now" && plan === "l2" && (
+              <Row
+                color={COLORS.l1}
+                title="Total reachable — all levels"
+                note="Level 1 + Level 2 combined · click for the email, phone and address breakdown"
+                value={compact(t.now.guests)}
+                onClick={() => onFocus({ ...focus, level: "now", field: null })}
+              />
+            )}
             {plan === "l1" && view === "now" && (
               <div className="rounded-xl border border-primary/40 bg-primary/5 p-3.5">
                 <p className="flex items-center gap-2 text-sm font-semibold text-primary">
