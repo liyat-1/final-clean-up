@@ -186,7 +186,9 @@ export function GrowthOverTime({
   const [hover, setHover] = useState<number | null>(null);
   const { lines, caption } = useMemo(() => linesFor(focus, plan), [focus, plan]);
 
-  const groups = Math.min(12, Math.max(1, series.length));
+  // Short ranges keep one point per day so the axis reads "day by day";
+  // longer ranges group into at most 12 even buckets.
+  const groups = series.length <= 16 ? Math.max(1, series.length) : 12;
   const points = useMemo(() => bucketize(series, groups, lines), [series, groups, lines]);
   const comparePoints = useMemo(
     () => (comparison ? bucketize(comparison, groups, lines) : null),
