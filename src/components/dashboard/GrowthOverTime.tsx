@@ -163,8 +163,9 @@ function niceTicks(max: number, count = 4) {
   const raw = max / count;
   const mag = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1))));
   const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? mag * 10;
-  const out: number[] = [];
-  for (let v = 0; v <= max + step * 0.001; v += step) out.push(v);
+  const out: number[] = [0];
+  // Always overshoot the max so the tallest bar/line stays inside the plot area.
+  while (out[out.length - 1]! < max) out.push(out[out.length - 1]! + step);
   return out;
 }
 
