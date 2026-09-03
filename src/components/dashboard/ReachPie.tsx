@@ -306,7 +306,9 @@ export function ReachPie({
 
   const matching = useMemo(() => {
     if (!field || !level) return [];
-    return guests.filter((g) => g.fields[field].status === level);
+    return guests.filter((g) =>
+      level === "now" ? g.fields[field].status !== "none" : g.fields[field].status === level,
+    );
   }, [guests, field, level]);
 
   const guest = guests.find((g) => g.id === guestId) ?? null;
