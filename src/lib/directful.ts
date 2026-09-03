@@ -579,6 +579,7 @@ export function levelBucket(t: Totals, level: LevelKey | null): Bucket {
 export const LEVEL_LABEL: Record<LevelKey, string> = {
   l1: "Level 1",
   l2: "Level 2",
+  now: "All levels",
 };
 
 export const FIELD_VERB: Record<FieldKey, string> = {
