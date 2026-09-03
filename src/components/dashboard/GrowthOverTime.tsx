@@ -173,6 +173,7 @@ export function GrowthOverTime({
   series,
   comparison,
   compareLabel,
+  compareRangeText,
   rangeLabelText,
   focus,
   plan,
@@ -180,6 +181,7 @@ export function GrowthOverTime({
   series: DayRecord[];
   comparison: DayRecord[] | null;
   compareLabel: string;
+  compareRangeText?: string;
   rangeLabelText: string;
   focus: Focus;
   plan: Plan;
@@ -187,28 +189,40 @@ export function GrowthOverTime({
   const [hover, setHover] = useState<number | null>(null);
   const { lines, caption } = useMemo(() => linesFor(focus, plan), [focus, plan]);
 
-  // Short ranges keep one point per day so the axis reads "day by day";
-  // longer ranges group into at most 12 even buckets.
-  const groups = series.length <= 16 ? Math.max(1, series.length) : 12;
+  const isCompare = !!comparison;
+  // Compare mode collapses each period into a single column, so the axis reads
+  // "this range vs that range". Otherwise: one point per day for short ranges,
+  // at most 12 even buckets for longer ones.
+  const groups = isCompare ? 1 : series.length <= 16 ? Math.max(1, series.length) : 12;
   const points = useMemo(() => bucketize(series, groups, lines), [series, groups, lines]);
   const comparePoints = useMemo(
     () => (comparison ? bucketize(comparison, groups, lines) : null),
     [comparison, groups, lines],
   );
 
-  const max = Math.max(
-    1,
-    ...points.flatMap((p) => lines.map((s) => p.values[s.id] ?? 0)),
-    ...(comparePoints ?? []).flatMap((p) => lines.map((s) => p.values[s.id] ?? 0)),
-  );
+  const columns = useMemo(() => {
+    if (isCompare) {
+      return [
+        { label: rangeLabelText, values: points[0]?.values ?? {}, opacity: 1 },
+        {
+          label: compareRangeText || compareLabel,
+          values: comparePoints?.[0]?.values ?? {},
+          opacity: 0.42,
+        },
+      ];
+    }
+    return points.map((p) => ({ label: p.label, values: p.values, opacity: 1 }));
+  }, [isCompare, points, comparePoints, rangeLabelText, compareRangeText, compareLabel]);
+
+  const max = Math.max(1, ...columns.flatMap((c) => lines.map((s) => c.values[s.id] ?? 0)));
   const ticks = niceTicks(max * 1.1);
   const y = (v: number) =>
     Math.round((BOTTOM - (v / (ticks[ticks.length - 1] || 1)) * (BOTTOM - TOP)) * 100) / 100;
-  const slot = (RIGHT - LEFT) / Math.max(1, points.length);
+  const slot = (RIGHT - LEFT) / Math.max(1, columns.length);
   const cx = (i: number) => Math.round((LEFT + slot * i + slot / 2) * 100) / 100;
 
-  const hovered = hover != null ? points[hover] : null;
-  const hoveredCompare = hover != null && comparePoints ? comparePoints[hover] : null;
+  const hovered = hover != null ? columns[hover] : null;
+  const other = hover != null && isCompare ? columns[hover === 0 ? 1 : 0] : null;
 
   return (
     <div className="w-full">
@@ -255,34 +269,28 @@ export function GrowthOverTime({
             </g>
           ))}
 
-          {comparePoints
-            ? points.map((p, i) => {
-                const bars = lines.flatMap((s) => [
-                  { key: `${s.id}-cur`, v: p.values[s.id] ?? 0, color: s.color, op: 1 },
-                  {
-                    key: `${s.id}-cmp`,
-                    v: comparePoints[i]?.values[s.id] ?? 0,
-                    color: s.color,
-                    op: 0.38,
-                  },
-                ]);
-                const inner = slot * 0.72;
-                const bw = inner / bars.length;
+          {isCompare
+            ? columns.map((c, i) => {
+                const inner = slot * 0.5;
+                const bw = inner / Math.max(1, lines.length);
                 const x0 = LEFT + slot * i + (slot - inner) / 2;
                 return (
-                  <g key={p.label + i}>
-                    {bars.map((b, bi) => (
-                      <rect
-                        key={b.key}
-                        x={x0 + bw * bi}
-                        y={y(b.v)}
-                        width={Math.max(2, bw - 2)}
-                        height={Math.max(1, BOTTOM - y(b.v))}
-                        rx="3"
-                        fill={b.color}
-                        fillOpacity={b.op}
-                      />
-                    ))}
+                  <g key={c.label + i}>
+                    {lines.map((s, bi) => {
+                      const v = c.values[s.id] ?? 0;
+                      return (
+                        <rect
+                          key={s.id}
+                          x={x0 + bw * bi}
+                          y={y(v)}
+                          width={Math.max(2, bw - 6)}
+                          height={Math.max(1, BOTTOM - y(v))}
+                          rx="4"
+                          fill={s.color}
+                          fillOpacity={c.opacity}
+                        />
+                      );
+                    })}
                   </g>
                 );
               })
@@ -293,9 +301,9 @@ export function GrowthOverTime({
                     stroke={s.color}
                     strokeWidth="2.5"
                     strokeLinejoin="round"
-                    points={points.map((p, i) => `${cx(i)},${y(p.values[s.id] ?? 0)}`).join(" ")}
+                    points={columns.map((p, i) => `${cx(i)},${y(p.values[s.id] ?? 0)}`).join(" ")}
                   />
-                  {points.map((p, i) => (
+                  {columns.map((p, i) => (
                     <circle
                       key={`${s.id}-${i}`}
                       cx={cx(i)}
@@ -308,21 +316,21 @@ export function GrowthOverTime({
               ))}
 
           <line x1={LEFT} y1={BOTTOM} x2={RIGHT} y2={BOTTOM} stroke="var(--border)" />
-          {points.map((p, i) => (
+          {columns.map((p, i) => (
             <text
               key={`lbl-${i}`}
               x={cx(i)}
               y={BOTTOM + 22}
-              textAnchor="end"
+              textAnchor={isCompare ? "middle" : "end"}
               fill="var(--muted-foreground)"
-              fontSize="12"
-              transform={`rotate(-35 ${cx(i)} ${BOTTOM + 22})`}
+              fontSize={isCompare ? "14" : "12"}
+              transform={isCompare ? undefined : `rotate(-35 ${cx(i)} ${BOTTOM + 22})`}
             >
               {p.label}
             </text>
           ))}
 
-          {points.map((p, i) => (
+          {columns.map((p, i) => (
             <rect
               key={`hit-${i}`}
               x={LEFT + slot * i}
@@ -334,7 +342,7 @@ export function GrowthOverTime({
               onMouseLeave={() => setHover(null)}
             />
           ))}
-          {hover != null && (
+          {hover != null && !isCompare && (
             <line
               x1={cx(hover)}
               y1={TOP}
@@ -355,7 +363,7 @@ export function GrowthOverTime({
             <div className="mt-2 space-y-2">
               {lines.map((s) => {
                 const cur = hovered.values[s.id] ?? 0;
-                const prev = hoveredCompare?.values[s.id];
+                const prev = other ? (other.values[s.id] ?? 0) : undefined;
                 const diff = prev == null ? null : cur - prev;
                 return (
                   <div key={s.id}>
@@ -372,7 +380,7 @@ export function GrowthOverTime({
                     </div>
                     {prev != null && (
                       <div className="flex items-center justify-between gap-3 pl-4 text-muted-foreground">
-                        <span>{compareLabel}</span>
+                        <span>{other!.label}</span>
                         <span className="num">
                           {n0(prev)} · {diff! >= 0 ? "+" : ""}
                           {n0(diff!)} ({pct(prev ? diff! / prev : 0)})
@@ -389,8 +397,9 @@ export function GrowthOverTime({
 
       <p className="mt-10 text-xs text-muted-foreground">
         {caption} {rangeLabelText}
-        {comparePoints ? ` · compared with ${compareLabel.toLowerCase()}` : ""}
+        {isCompare ? ` · compared with ${(compareRangeText || compareLabel).toLowerCase()}` : ""}
       </p>
     </div>
   );
 }
+
