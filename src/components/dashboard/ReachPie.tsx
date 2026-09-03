@@ -426,7 +426,7 @@ export function ReachPie({
             ))}
             {view === "now" && plan === "l2" && (
               <Row
-                color={COLORS.reachable ?? COLORS.l1}
+                color={COLORS.l1}
                 title="Total reachable — all levels"
                 note="Level 1 + Level 2 combined · click for the email, phone and address breakdown"
                 value={compact(t.now.guests)}
