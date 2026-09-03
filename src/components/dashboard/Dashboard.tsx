@@ -312,14 +312,6 @@ export function Dashboard({ plan }: { plan: Plan }) {
               </section>
             )}
 
-            <section className="panel p-6">
-              <h2 className="text-lg font-semibold">Missed opportunities</h2>
-              <p className="num mt-2 text-3xl font-bold">{compact(t.missed)}</p>
-              <p className="text-sm text-muted-foreground">
-                guests whose details can no longer be recovered · {share(t.missed, t.bookings)} of
-                bookings.
-              </p>
-            </section>
 
             <section className="panel p-6">
               <h2 className="text-lg font-semibold">Profile completeness</h2>
