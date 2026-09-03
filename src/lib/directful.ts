@@ -544,7 +544,7 @@ export function rangeLabel(r: Range) {
 /** Which Directful package the hotel pays for. */
 export type Plan = "l1" | "l2";
 
-export type LevelKey = "l1" | "l2";
+export type LevelKey = "l1" | "l2" | "now";
 export type ViewState = "now" | "start";
 
 /** What the whole dashboard is currently looking at. Drives pie, list and graph. */
