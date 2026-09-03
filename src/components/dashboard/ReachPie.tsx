@@ -325,7 +325,7 @@ export function ReachPie({
   const guest = guests.find((g) => g.id === guestId);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.95fr)]">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center">
         <nav className="mb-2 flex flex-wrap items-center gap-1 self-start text-xs text-muted-foreground">
           {depth > 0 && (
