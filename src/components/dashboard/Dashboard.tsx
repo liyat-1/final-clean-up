@@ -100,8 +100,8 @@ export function Dashboard({ plan }: { plan: Plan }) {
           </p>
           <h1 className="text-2xl font-bold lg:text-3xl">Directful — Analytics</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            How many of your guests you can contact today, and how much that grew since your
-            starting point.
+            How many of your guests you can contact today — starting from zero reachable
+            bookings before Directful.
           </p>
 
           <div className="mt-5 grid gap-3 pb-6 sm:grid-cols-2 xl:grid-cols-4">
@@ -214,7 +214,7 @@ export function Dashboard({ plan }: { plan: Plan }) {
         <section className="panel mb-6 flex flex-wrap items-center justify-between gap-6 p-6 lg:p-8">
           <div className="flex items-end gap-4">
             <span className="num text-4xl font-bold text-muted-foreground lg:text-5xl">
-              {compact(t.starting.guests)}
+              0
             </span>
             <ArrowUpRight className="mb-3 size-8 text-primary" />
             <span
@@ -226,7 +226,7 @@ export function Dashboard({ plan }: { plan: Plan }) {
             <div className="mb-2">
               <div className="num text-xl font-bold text-primary">{pct(t.upliftFromStart)}</div>
               <div className="text-sm text-muted-foreground">
-                more guests you can reach than at your starting point
+                of your bookings are now reachable — you started at zero
               </div>
             </div>
           </div>
