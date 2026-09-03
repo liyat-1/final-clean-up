@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Sparkles, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,6 @@ import {
   FIELDS,
   FIELD_COLOR,
   FIELD_VERB,
-  LEAF_LABEL,
   LEVEL2_POTENTIAL_RATE,
   LEVEL_LABEL,
   compact,
@@ -19,11 +18,9 @@ import {
   type FieldKey,
   type Focus,
   type Guest,
-  type LeafKey,
   type LevelKey,
   type Plan,
   type Totals,
-  type FieldStatus,
 } from "@/lib/directful";
 
 export type { LevelKey, ViewState } from "@/lib/directful";
@@ -145,13 +142,6 @@ function Donut({
       </text>
     </svg>
   );
-}
-
-function statusText(s: FieldStatus, via?: LeafKey) {
-  if (s === "start") return "Not reachable when you started";
-  if (s === "l1") return `Became reachable with Level 1${via ? ` · ${LEAF_LABEL[via]}` : ""}`;
-  if (s === "l2") return `Became reachable with Level 2${via ? ` · ${LEAF_LABEL[via]}` : ""}`;
-  return "Not reachable yet";
 }
 
 function Row({
@@ -303,13 +293,6 @@ export function ReachPie({
       },
     ];
   };
-
-  const matching = useMemo(() => {
-    if (!field || !level) return [];
-    return guests.filter((g) =>
-      level === "now" ? g.fields[field].status !== "none" : g.fields[field].status === level,
-    );
-  }, [guests, field, level]);
 
   const guest = guests.find((g) => g.id === guestId) ?? null;
 
