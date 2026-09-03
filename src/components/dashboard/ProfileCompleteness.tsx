@@ -35,8 +35,8 @@ export function ProfileCompleteness({ t, plan }: { t: Totals; plan: Plan }) {
             strokeWidth="16"
           />
           {parts.map((p) => {
-            const dash = p.value * C;
-            const offset = acc * C;
+            const dash = +(p.value * C).toFixed(2);
+            const offset = +(acc * C).toFixed(2);
             acc += p.value;
             return (
               <circle
@@ -110,7 +110,7 @@ export function ProfileCompleteness({ t, plan }: { t: Totals; plan: Plan }) {
                   <div
                     className="h-full rounded-full"
                     style={{
-                      width: `${Math.min(100, pctOf * 100)}%`,
+                      width: `${Math.min(100, pctOf * 100).toFixed(2)}%`,
                       background: FIELD_COLOR[f.id],
                     }}
                   />
