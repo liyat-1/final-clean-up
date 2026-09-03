@@ -462,7 +462,7 @@ function viaFor(status: FieldStatus, r: number): LeafKey | undefined {
   return undefined;
 }
 
-export function guestsFor(sel: Selection, range: Range): Guest[] {
+export function guestsFor(sel: Selection, range: Range, opts?: { noL2?: boolean }): Guest[] {
   const list = propertiesFor(sel);
   const out: Guest[] = [];
   const span = Math.max(1, daysBetween(range.from, range.to));
@@ -474,7 +474,7 @@ export function guestsFor(sel: Selection, range: Range): Guest[] {
       const last = LAST[Math.floor(r(2) * LAST.length)] ?? "Berg";
       const name = `${first} ${last}`;
       const mk = (f: FieldKey, n: number) => {
-        const status = statusFor(r(n), p.levels.l2);
+        const status = statusFor(r(n), p.levels.l2 && !opts?.noL2);
         const via = viaFor(status, r(n + 20));
         const value =
           status === "none"
@@ -535,4 +535,68 @@ export function dayLabel(date: string) {
 
 export function rangeLabel(r: Range) {
   return `${dayLabel(r.from)} – ${dayLabel(r.to)}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Plans, focus + level helpers                                        */
+/* ------------------------------------------------------------------ */
+
+/** Which Directful package the hotel pays for. */
+export type Plan = "l1" | "l2";
+
+export type LevelKey = "l1" | "l2";
+export type ViewState = "now" | "start";
+
+/** What the whole dashboard is currently looking at. Drives pie, list and graph. */
+export type Focus = {
+  view: ViewState;
+  level: LevelKey | null;
+  field: FieldKey | null;
+};
+
+export const EMPTY_FOCUS: Focus = { view: "now", level: null, field: null };
+
+/** Level 1 only hotels have no Level 2 work at all — hide it from every number. */
+export function stripLevel2(series: DayRecord[]): DayRecord[] {
+  return series.map((d) => ({ ...d, journey: ZERO, staff: ZERO, idScan: ZERO }));
+}
+
+export function dayBucket(d: DayRecord, k: "start" | "l1" | "l2" | "now"): Bucket {
+  const l1 = addBucket(d.cleanup, d.whois);
+  const l2 = addBucket(d.journey, addBucket(d.staff, d.idScan));
+  if (k === "start") return d.starting;
+  if (k === "l1") return l1;
+  if (k === "l2") return l2;
+  return addBucket(d.starting, addBucket(l1, l2));
+}
+
+export function levelBucket(t: Totals, level: LevelKey | null): Bucket {
+  if (level === "l1") return t.l1;
+  if (level === "l2") return t.l2;
+  return t.now;
+}
+
+export const LEVEL_LABEL: Record<LevelKey, string> = {
+  l1: "Level 1",
+  l2: "Level 2",
+};
+
+export const FIELD_VERB: Record<FieldKey, string> = {
+  email: "email",
+  phone: "call or text",
+  address: "post to",
+};
+
+/** Profile completeness, split by what each stage contributed. */
+export function completenessOf(t: Totals) {
+  const cap = Math.max(1, t.now.guests * 3);
+  const part = (b: Bucket) => details(b) / cap;
+  return {
+    total: details(t.now) / cap,
+    start: part(t.starting),
+    l1: part(t.l1),
+    l2: part(t.l2),
+    filled: details(t.now),
+    cap: t.now.guests * 3,
+  };
 }

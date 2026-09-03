@@ -1,52 +1,141 @@
 import { useMemo, useState } from "react";
 
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   COLORS,
+  FIELDS,
+  FIELD_COLOR,
+  LEVEL_LABEL,
   compact,
+  dayBucket,
   dayLabel,
   n0,
   pct,
   type DayRecord,
+  type Focus,
+  type Plan,
 } from "@/lib/directful";
 
-export type SeriesKey = "now" | "starting" | "l1" | "l2" | "missed";
+type Line = { id: string; label: string; color: string; value: (d: DayRecord) => number };
 
-export const SERIES: { id: SeriesKey; label: string; color: string }[] = [
-  { id: "now", label: "Guests you can reach", color: COLORS.l2 },
-  { id: "starting", label: "Starting point", color: COLORS.starting },
-  { id: "l1", label: "Added by Level 1", color: COLORS.l1 },
-  { id: "l2", label: "Added by Level 2", color: COLORS.opportunity },
-  { id: "missed", label: "Missed opportunities", color: COLORS.missed },
-];
-
-function valueOf(d: DayRecord, k: SeriesKey): number {
-  const l1 = d.cleanup.guests + d.whois.guests;
-  const l2 = d.journey.guests + d.staff.guests + d.idScan.guests;
-  switch (k) {
-    case "starting":
-      return d.starting.guests;
-    case "l1":
-      return l1;
-    case "l2":
-      return l2;
-    case "missed":
-      return d.missed;
-    default:
-      return d.starting.guests + l1 + l2;
-  }
+function remainingOf(d: DayRecord) {
+  const now = dayBucket(d, "now").guests;
+  return Math.max(0, d.bookings - now - d.missed);
 }
 
-type Point = { label: string; values: Record<SeriesKey, number> };
+/** The graph never has its own controls — it always mirrors the pie selection. */
+export function linesFor(focus: Focus, plan: Plan): { lines: Line[]; caption: string } {
+  const { view, level, field } = focus;
 
-function bucketize(series: DayRecord[], groups: number): Point[] {
+  if (view === "start") {
+    return {
+      caption: "Guests you could already reach before Directful started.",
+      lines: [
+        {
+          id: "start",
+          label: "Starting point",
+          color: COLORS.starting,
+          value: (d) => d.starting.guests,
+        },
+      ],
+    };
+  }
+
+  if (level && field) {
+    const label = FIELDS.find((f) => f.id === field)!.label;
+    return {
+      caption: `${label} reachability over time, from ${LEVEL_LABEL[level]}.`,
+      lines: [
+        {
+          id: "made",
+          label: `${label} made reachable`,
+          color: FIELD_COLOR[field],
+          value: (d) => dayBucket(d, level)[field],
+        },
+        {
+          id: "open",
+          label: `${label} still not reachable`,
+          color: COLORS.opportunity,
+          value: (d) => Math.max(0, d.bookings - dayBucket(d, "now")[field]),
+        },
+      ],
+    };
+  }
+
+  if (level) {
+    return {
+      caption: `What ${LEVEL_LABEL[level]} made reachable, broken down by contact detail.`,
+      lines: [
+        ...FIELDS.map((f) => ({
+          id: f.id,
+          label: f.label,
+          color: FIELD_COLOR[f.id],
+          value: (d: DayRecord) => dayBucket(d, level)[f.id],
+        })),
+        {
+          id: "total",
+          label: `Total guests from ${LEVEL_LABEL[level]}`,
+          color: level === "l1" ? COLORS.l1 : COLORS.l2,
+          value: (d: DayRecord) => dayBucket(d, level).guests,
+        },
+      ],
+    };
+  }
+
+  if (plan === "l1") {
+    return {
+      caption: "How Level 1 is performing, next to what is still out of reach.",
+      lines: [
+        {
+          id: "l1",
+          label: "Guests made reachable by Level 1",
+          color: COLORS.l1,
+          value: (d) => dayBucket(d, "l1").guests,
+        },
+        {
+          id: "remaining",
+          label: "Remaining opportunity",
+          color: COLORS.opportunity,
+          value: remainingOf,
+        },
+      ],
+    };
+  }
+
+  return {
+    caption: "Level 1 and Level 2 side by side, with everything you can reach today.",
+    lines: [
+      {
+        id: "l1",
+        label: "Added by Level 1",
+        color: COLORS.l1,
+        value: (d) => dayBucket(d, "l1").guests,
+      },
+      {
+        id: "l2",
+        label: "Added by Level 2",
+        color: COLORS.l2,
+        value: (d) => dayBucket(d, "l2").guests,
+      },
+      {
+        id: "now",
+        label: "Guests you can reach",
+        color: COLORS.starting,
+        value: (d) => dayBucket(d, "now").guests,
+      },
+    ],
+  };
+}
+
+type Point = { label: string; values: Record<string, number> };
+
+function bucketize(series: DayRecord[], groups: number, lines: Line[]): Point[] {
   if (!series.length) return [];
   const size = Math.ceil(series.length / groups);
   const out: Point[] = [];
   for (let i = 0; i < series.length; i += size) {
     const chunk = series.slice(i, i + size);
-    const values = {} as Record<SeriesKey, number>;
-    for (const s of SERIES) values[s.id] = chunk.reduce((a, d) => a + valueOf(d, s.id), 0);
+    const values: Record<string, number> = {};
+    for (const l of lines) values[l.id] = chunk.reduce((a, d) => a + l.value(d), 0);
     const first = chunk[0]!;
     const last = chunk[chunk.length - 1]!;
     out.push({
@@ -78,27 +167,30 @@ export function GrowthOverTime({
   comparison,
   compareLabel,
   rangeLabelText,
+  focus,
+  plan,
 }: {
   series: DayRecord[];
   comparison: DayRecord[] | null;
   compareLabel: string;
   rangeLabelText: string;
+  focus: Focus;
+  plan: Plan;
 }) {
-  const [picked, setPicked] = useState<SeriesKey[]>(["now", "starting"]);
   const [hover, setHover] = useState<number | null>(null);
+  const { lines, caption } = useMemo(() => linesFor(focus, plan), [focus, plan]);
 
   const groups = Math.min(12, Math.max(1, series.length));
-  const points = useMemo(() => bucketize(series, groups), [series, groups]);
+  const points = useMemo(() => bucketize(series, groups, lines), [series, groups, lines]);
   const comparePoints = useMemo(
-    () => (comparison ? bucketize(comparison, groups) : null),
-    [comparison, groups],
+    () => (comparison ? bucketize(comparison, groups, lines) : null),
+    [comparison, groups, lines],
   );
 
-  const active = SERIES.filter((s) => picked.includes(s.id));
   const max = Math.max(
     1,
-    ...points.flatMap((p) => active.map((s) => p.values[s.id])),
-    ...(comparePoints ?? []).flatMap((p) => active.map((s) => p.values[s.id])),
+    ...points.flatMap((p) => lines.map((s) => p.values[s.id] ?? 0)),
+    ...(comparePoints ?? []).flatMap((p) => lines.map((s) => p.values[s.id] ?? 0)),
   );
   const ticks = niceTicks(max * 1.1);
   const y = (v: number) =>
@@ -106,25 +198,21 @@ export function GrowthOverTime({
   const slot = (RIGHT - LEFT) / Math.max(1, points.length);
   const cx = (i: number) => Math.round((LEFT + slot * i + slot / 2) * 100) / 100;
 
-  const toggle = (k: SeriesKey) =>
-    setPicked((s) => (s.includes(k) ? (s.length > 1 ? s.filter((x) => x !== k) : s) : [...s, k]));
-
   const hovered = hover != null ? points[hover] : null;
   const hoveredCompare = hover != null && comparePoints ? comparePoints[hover] : null;
 
   return (
     <div className="w-full">
-      <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2">
-        {SERIES.map((s) => (
-          <label key={s.id} className="flex cursor-pointer items-center gap-2 text-sm">
-            <Checkbox checked={picked.includes(s.id)} onCheckedChange={() => toggle(s.id)} />
+      <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+        {lines.map((s) => (
+          <span key={s.id} className="flex items-center gap-2 text-sm">
             <span
               className="size-2.5 rounded-full"
               style={{ background: s.color }}
               aria-hidden="true"
             />
             <span className="text-muted-foreground">{s.label}</span>
-          </label>
+          </span>
         ))}
       </div>
 
@@ -158,11 +246,10 @@ export function GrowthOverTime({
             </g>
           ))}
 
-          {/* series */}
           {comparePoints
             ? points.map((p, i) => {
-                const bars = active.flatMap((s) => [
-                  { key: `${s.id}-cur`, v: p.values[s.id], color: s.color, op: 1 },
+                const bars = lines.flatMap((s) => [
+                  { key: `${s.id}-cur`, v: p.values[s.id] ?? 0, color: s.color, op: 1 },
                   {
                     key: `${s.id}-cmp`,
                     v: comparePoints[i]?.values[s.id] ?? 0,
@@ -190,20 +277,20 @@ export function GrowthOverTime({
                   </g>
                 );
               })
-            : active.map((s) => (
+            : lines.map((s) => (
                 <g key={s.id}>
                   <polyline
                     fill="none"
                     stroke={s.color}
                     strokeWidth="2.5"
                     strokeLinejoin="round"
-                    points={points.map((p, i) => `${cx(i)},${y(p.values[s.id])}`).join(" ")}
+                    points={points.map((p, i) => `${cx(i)},${y(p.values[s.id] ?? 0)}`).join(" ")}
                   />
                   {points.map((p, i) => (
                     <circle
                       key={`${s.id}-${i}`}
                       cx={cx(i)}
-                      cy={y(p.values[s.id])}
+                      cy={y(p.values[s.id] ?? 0)}
                       r={hover === i ? 5 : 3}
                       fill={s.color}
                     />
@@ -211,7 +298,6 @@ export function GrowthOverTime({
                 </g>
               ))}
 
-          {/* x axis labels */}
           <line x1={LEFT} y1={BOTTOM} x2={RIGHT} y2={BOTTOM} stroke="var(--border)" />
           {points.map((p, i) => (
             <text
@@ -227,7 +313,6 @@ export function GrowthOverTime({
             </text>
           ))}
 
-          {/* hover targets */}
           {points.map((p, i) => (
             <rect
               key={`hit-${i}`}
@@ -255,14 +340,12 @@ export function GrowthOverTime({
         {hovered && (
           <div
             className="pointer-events-none absolute top-2 z-10 w-64 rounded-xl border border-border bg-popover p-3 text-xs shadow-lg"
-            style={{
-              left: `${Math.min(72, Math.max(2, ((cx(hover!) + 20) / W) * 100))}%`,
-            }}
+            style={{ left: `${Math.min(72, Math.max(2, ((cx(hover!) + 20) / W) * 100))}%` }}
           >
             <p className="font-semibold">{hovered.label}</p>
             <div className="mt-2 space-y-2">
-              {active.map((s) => {
-                const cur = hovered.values[s.id];
+              {lines.map((s) => {
+                const cur = hovered.values[s.id] ?? 0;
                 const prev = hoveredCompare?.values[s.id];
                 const diff = prev == null ? null : cur - prev;
                 return (
@@ -296,7 +379,7 @@ export function GrowthOverTime({
       </div>
 
       <p className="mt-10 text-xs text-muted-foreground">
-        {rangeLabelText}
+        {caption} {rangeLabelText}
         {comparePoints ? ` · compared with ${compareLabel.toLowerCase()}` : ""}
       </p>
     </div>
