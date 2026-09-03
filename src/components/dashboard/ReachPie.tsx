@@ -392,7 +392,7 @@ export function ReachPie({
         </p>
       </div>
 
-      <div className="space-y-2">
+      <div className="w-full space-y-2">
         {depth === 0 &&
           rootSlices.map((s) => (
             <Row
