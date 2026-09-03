@@ -158,14 +158,27 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                     {item.active && !collapsed && (
                       <div className="mt-1 ml-6 space-y-1 border-l border-sidebar-border pl-3">
-                        <span className="flex items-center gap-2 text-sm font-medium text-primary">
-                          <i className="size-1.5 rounded-full bg-primary" /> Analytics
-                        </span>
+                        <Link
+                          to="/"
+                          activeOptions={{ exact: true }}
+                          className="flex items-center gap-2 text-sm text-muted-foreground"
+                          activeProps={{ className: "font-medium text-primary" }}
+                        >
+                          <i className="size-1.5 rounded-full bg-current" /> Analytics
+                        </Link>
+                        <Link
+                          to="/level-1"
+                          className="flex items-center gap-2 text-sm text-muted-foreground"
+                          activeProps={{ className: "font-medium text-primary" }}
+                        >
+                          <i className="size-1.5 rounded-full bg-current" /> Level 1 view
+                        </Link>
                         <span className="flex items-center gap-2 text-sm text-muted-foreground">
                           <RouteIcon className="size-3.5" /> Guest Journey
                         </span>
                       </div>
                     )}
+
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
