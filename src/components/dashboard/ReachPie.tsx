@@ -325,7 +325,7 @@ export function ReachPie({
   const guest = guests.find((g) => g.id === guestId);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.95fr)]">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center">
         <nav className="mb-2 flex flex-wrap items-center gap-1 self-start text-xs text-muted-foreground">
           {depth > 0 && (
@@ -360,7 +360,7 @@ export function ReachPie({
             centerNote={`${share(view === "start" ? t.starting.guests : t.now.guests, t.bookings)} of ${compact(t.bookings)} bookings`}
             onPick={(k) => (k === "l1" || k === "l2" || k === "start" ? onPath([k]) : undefined)}
           />
-        ) : (
+        ) : depth === 1 ? (
           <Donut
             slices={contactSlices(bucketForPath)}
             centerValue={compact(bucketForPath.guests)}
@@ -374,6 +374,13 @@ export function ReachPie({
             centerNote={`${n0(details(bucketForPath))} contact details`}
             onPick={(k) => onPath([path[0]!, k])}
           />
+        ) : (
+          <Donut
+            slices={fieldSlices(activeField!)}
+            centerValue={compact(fieldBase[activeField!])}
+            centerLabel={`guests with ${FIELDS.find((f) => f.id === activeField)!.label.toLowerCase()}`}
+            centerNote={`${share(fieldBase[activeField!], t.bookings)} of ${compact(t.bookings)} bookings`}
+          />
         )}
 
         <p className="mt-3 max-w-[340px] text-center text-xs text-muted-foreground">
@@ -385,7 +392,7 @@ export function ReachPie({
         </p>
       </div>
 
-      <div className="space-y-2">
+      <div className="w-full space-y-2">
         {depth === 0 &&
           rootSlices.map((s) => (
             <Row
