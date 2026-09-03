@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { GrowthOverTime } from "@/components/dashboard/GrowthOverTime";
+import { GuestBreakdown } from "@/components/dashboard/GuestBreakdown";
 import { ProfileCompleteness } from "@/components/dashboard/ProfileCompleteness";
 import { ReachPie } from "@/components/dashboard/ReachPie";
 import {
@@ -322,6 +323,8 @@ export function Dashboard({ plan }: { plan: Plan }) {
             </section>
           </div>
         </div>
+
+        <GuestBreakdown t={t} guests={guests} focus={focus} guestId={guestId} onGuest={setGuestId} />
 
         <section className="panel mt-6 p-6 lg:p-8">
           <h2 className="text-xl font-semibold">Guests you can reach over time</h2>
