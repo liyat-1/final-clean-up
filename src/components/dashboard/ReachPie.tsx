@@ -286,7 +286,10 @@ export function ReachPie({
     return [
       {
         key: "have",
-        label: `Made reachable by ${LEVEL_LABEL[level ?? "l1"]}`,
+        label:
+          level === "now"
+            ? "Made reachable in total"
+            : `Made reachable by ${LEVEL_LABEL[level ?? "l1"]}`,
         hint: `Guests you can ${FIELD_VERB[f]}`,
         value: made,
         color: FIELD_COLOR[f],
